@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Grabador inteligente para generar mapas mentales y resúmenes educativos">
+  <title>StudyMind - Analizador de Audio Educativo</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      color: #333;
+      padding: 10px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: clamp(10px, 2vw, 20px);
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: clamp(20px, 4vw, 30px);
+      color: white;
+      padding: 20px 10px;
+    }
+
+    .header h1 {
+      font-size: clamp(1.8em, 5vw, 2.5em);
+      margin-bottom: 10px;
+    }
+
+    .header p {
+      font-size: clamp(0.9em, 2vw, 1.1em);
+      opacity: 0.95;
+    }
+
+    .main-content {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: clamp(15px, 3vw, 30px);
+      margin-bottom: 30px;
+    }
+
+    /* Tablets y Desktop */
+    @media (min-width: 768px) {
+      .main-content {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    /* Desktop grande */
+    @media (min-width: 1200px) {
+      .main-content {
+        grid-template-columns: minmax(500px, 1fr) minmax(500px, 1fr);
+      }
+    }
+
+    .control-panel,
+    .analysis-panel {
+      background: white;
+      border-radius: clamp(15px, 2vw, 20px);
+      padding: clamp(20px, 3vw, 30px);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+
+    .record-button {
+      width: clamp(100px, 20vw, 120px);
+      height: clamp(100px, 20vw, 120px);
+      border-radius: 50%;
+      border: none;
+      font-size: clamp(14px, 2.5vw, 18px);
+      font-weight: bold;
+      cursor: pointer;
+      margin: 20px auto;
+      display: block;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+
+    .record-button.inactive {
+      background: linear-gradient(135deg, #ff416c, #ff4757);
+      color: white;
+    }
+
+    .record-button.recording {
+      background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+      animation: pulse 1.5s infinite;
+    }
+
+    .record-button.processing {
+      background: linear-gradient(135deg, #ffa726, #fb8c00);
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+
+    .status {
+      text-align: center;
+      margin: 20px 0;
+      font-size: clamp(14px, 2.5vw, 18px);
+      font-weight: 500;
+      padding: 0 10px;
+    }
+
+    .audio-visualizer {
+      height: clamp(60px, 15vw, 100px);
+      background: #f8f9fa;
+      border-radius: 10px;
+      margin: 20px 0;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: clamp(2px, 0.5vw, 3px);
+      padding: 10px;
+      overflow: hidden;
+    }
+
+    .bar {
+      width: clamp(3px, 0.8vw, 4px);
+      background: linear-gradient(to top, #667eea, #764ba2);
+      border-radius: 2px;
+      transition: height 0.1s ease;
+      flex-shrink: 0;
+    }
+
+    .transcript-section {
+      margin-top: 20px;
+    }
+
+    .transcript-content {
+      background: #f8f9fa;
+      border-radius: 10px;
+      padding: clamp(15px, 3vw, 20px);
+      min-height: clamp(100px, 20vw, 150px);
+      max-height: 300px;
+      overflow-y: auto;
+      border: 1px solid #e9ecef;
+      font-size: clamp(14px, 2vw, 16px);
+      line-height: 1.6;
+    }
+
+    .analysis-results {
+      margin-top: 20px;
+    }
+
+    .key-concepts,
+    .summary-box {
+      padding: clamp(12px, 2.5vw, 15px);
+      margin: 15px 0;
+      border-radius: 5px;
+      font-size: clamp(14px, 2vw, 16px);
+      line-height: 1.6;
+    }
+
+    .key-concepts {
+      background: #e3f2fd;
+      border-left: 4px solid #2196f3;
+    }
+
+    .summary-box {
+      background: #f3e5f5;
+      border-left: 4px solid #9c27b0;
+    }
+
+    .key-concepts-tags {
+      margin-top: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .concept-tag {
+      background: white;
+      padding: clamp(6px, 1vw, 8px) clamp(10px, 2vw, 15px);
+      border-radius: 15px;
+      font-size: clamp(11px, 1.8vw, 13px);
+      display: inline-block;
+      white-space: nowrap;
+    }
+
+    .mind-map {
+      background: #fff;
+      border: 2px dashed #ddd;
+      border-radius: 10px;
+      height: clamp(250px, 40vw, 350px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 20px 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .node {
+      position: absolute;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      padding: clamp(8px, 1.5vw, 10px) clamp(12px, 2vw, 15px);
+      border-radius: 20px;
+      font-size: clamp(10px, 1.8vw, 12px);
+      font-weight: bold;
+      cursor: pointer;
+      transition: transform 0.3s ease;
+      white-space: nowrap;
+    }
+
+    .node:hover {
+      transform: scale(1.1);
+    }
+
+    .connection {
+      position: absolute;
+      height: 2px;
+      background: #ddd;
+      transform-origin: left center;
+    }
+
+    .export-buttons {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+      gap: clamp(8px, 1.5vw, 10px);
+      margin-top: 20px;
+    }
+
+    .export-btn {
+      padding: clamp(10px, 2vw, 12px);
+      border: none;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      font-weight: bold;
+      font-size: clamp(12px, 2vw, 14px);
+      cursor: pointer;
+      transition: all 0.3s ease;
+      white-space: nowrap;
+    }
+
+    .export-btn:hover {
+      opacity: 0.9;
+      transform: translateY(-2px);
+    }
+
+    .export-btn:active {
+      transform: translateY(0);
+    }
+
+    .section-title {
+      color: #333;
+      margin-bottom: 15px;
+      font-size: clamp(1.1em, 2.5vw, 1.3em);
+      font-weight: 600;
+    }
+
+    .demo-content {
+      background: #fff3cd;
+      border: 1px solid #ffeaa7;
+      border-radius: 10px;
+      padding: clamp(15px, 2.5vw, 20px);
+      margin-top: 20px;
+      font-size: clamp(13px, 2vw, 15px);
+      line-height: 1.6;
+    }
+
+    /* Scrollbar personalizado */
+    .transcript-content::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .transcript-content::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 10px;
+    }
+
+    .transcript-content::-webkit-scrollbar-thumb {
+      background: #888;
+      border-radius: 10px;
+    }
+
+    .transcript-content::-webkit-scrollbar-thumb:hover {
+      background: #555;
+    }
+
+    /* Móviles pequeños */
+    @media (max-width: 480px) {
+      body {
+        padding: 5px;
+      }
+
+      .header {
+        padding: 15px 5px;
+      }
+
+      .record-button {
+        width: 90px;
+        height: 90px;
+        font-size: 13px;
+      }
+
+      .audio-visualizer {
+        height: 60px;
+      }
+
+      .mind-map {
+        height: 200px;
+      }
+
+      .export-buttons {
+        grid-template-columns: 1fr;
+      }
+
+      .node {
+        font-size: 9px;
+        padding: 6px 10px;
+      }
+    }
+
+    /* Tablets */
+    @media (min-width: 481px) and (max-width: 767px) {
+      .main-content {
+        gap: 20px;
+      }
+    }
+
+    /* Landscape móviles */
+    @media (max-height: 600px) and (orientation: landscape) {
+      .header h1 {
+        font-size: 1.5em;
+      }
+
+      .header p {
+        font-size: 0.9em;
+      }
+
+      .record-button {
+        width: 80px;
+        height: 80px;
+        margin: 10px auto;
+      }
+
+      .audio-visualizer {
+        height: 50px;
+      }
+
+      .mind-map {
+        height: 180px;
+      }
+    }
+
+    /* Loading animation */
+    @keyframes shimmer {
+      0% { opacity: 0.6; }
+      50% { opacity: 1; }
+      100% { opacity: 0.6; }
+    }
+
+    .loading {
+      animation: shimmer 1.5s infinite;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>🎓 StudyMind</h1>
+    <p>Grabador inteligente para generar mapas mentales y resúmenes</p>
+  </div>
+
+  <div class="main-content">
+    <!-- Panel de Control -->
+    <div class="control-panel">
+      <h2 class="section-title">🎤 Control de Grabación</h2>
+
+      <button class="record-button inactive" id="recordBtn">
+        Iniciar Grabación
+      </button>
+
+      <div class="status" id="status">Presiona para comenzar a grabar</div>
+
+      <div class="audio-visualizer" id="visualizer"></div>
+
+      <div class="transcript-section">
+        <h3 class="section-title">📝 Transcripción en Tiempo Real</h3>
+        <div class="transcript-content" id="transcript">
+          Aquí aparecerá la transcripción del audio en tiempo real...
+        </div>
+      </div>
+
+      <div class="demo-content">
+        <strong>💡 Modo Demo:</strong> Este es un prototipo funcional. Haz clic en el botón de grabación para ver la demostración completa.
+      </div>
+    </div>
+
+    <!-- Panel de Análisis -->
+    <div class="analysis-panel">
+      <h2 class="section-title">🧠 Análisis Inteligente</h2>
+
+      <div class="analysis-results" id="analysisResults">
+        <div class="key-concepts">
+          <strong>🔑 Conceptos Clave:</strong>
+          <div id="keyConcepts">Inicia una grabación para ver los conceptos extraídos automáticamente</div>
+        </div>
+
+        <div class="summary-box">
+          <strong>📋 Resumen:</strong>
+          <div id="summary">El resumen se generará después de la grabación</div>
+        </div>
+      </div>
+
+      <h3 class="section-title">🗺️ Mapa Mental</h3>
+      <div class="mind-map" id="mindMap">
+        <div style="color: #999;">El mapa mental se generará automáticamente</div>
+      </div>
+
+      <div class="export-buttons">
+        <button class="export-btn" onclick="exportToPDF()">📄 PDF</button>
+        <button class="export-btn" onclick="exportToImage()">🖼️ Imagen</button>
+        <button class="export-btn" onclick="exportToText()">📝 Texto</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  class AudioAnalyzer {
+    constructor() {
+      this.isRecording = false;
+      this.mediaRecorder = null;
+      this.audioChunks = [];
+      this.recordButton = document.getElementById('recordBtn');
+      this.status = document.getElementById('status');
+      this.visualizer = document.getElementById('visualizer');
+      this.transcript = document.getElementById('transcript');
+
+      this.initializeVisualizer();
+      this.setupEventListeners();
+    }
+
+    initializeVisualizer() {
+      // Ajustar número de barras según ancho de pantalla
+      const barCount = window.innerWidth < 480 ? 30 : window.innerWidth < 768 ? 40 : 50;
+
+      for (let i = 0; i < barCount; i++) {
+        const bar = document.createElement('div');
+        bar.className = 'bar';
+        bar.style.height = '5px';
+        this.visualizer.appendChild(bar);
+      }
+
+      // Recrear visualizador en resize
+      window.addEventListener('resize', this.debounce(() => {
+        const currentBarCount = this.visualizer.children.length;
+        const newBarCount = window.innerWidth < 480 ? 30 : window.innerWidth < 768 ? 40 : 50;
+
+        if (currentBarCount !== newBarCount) {
+          this.visualizer.innerHTML = '';
+          this.initializeVisualizer();
+        }
+      }, 250));
+    }
+
+    debounce(func, wait) {
+      let timeout;
+      return function executedFunction(...args) {
+        const later = () => {
+          clearTimeout(timeout);
+          func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+      };
+    }
+
+    setupEventListeners() {
+      this.recordButton.addEventListener('click', () => {
+        if (!this.isRecording) {
+          this.startRecording();
+        } else {
+          this.stopRecording();
+        }
+      });
+    }
+
+    async startRecording() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        this.mediaRecorder = new MediaRecorder(stream);
+
+        this.mediaRecorder.ondataavailable = (event) => {
+          this.audioChunks.push(event.data);
+        };
+
+        this.mediaRecorder.onstop = () => {
+          this.processAudio();
+        };
+
+        this.mediaRecorder.start();
+        this.isRecording = true;
+        this.updateUI('recording');
+        this.startVisualization();
+        this.simulateTranscription();
+
+      } catch (error) {
+        console.error('Error accessing microphone:', error);
+
+        // Modo demo si no hay permisos
+        if (confirm('No se pudo acceder al micrófono. ¿Deseas ver el modo demo?')) {
+          this.startDemoMode();
+        }
+      }
+    }
+
+    startDemoMode() {
+      this.isRecording = true;
+      this.updateUI('recording');
+      this.startVisualization();
+      this.simulateTranscription();
+
+      // Auto-detener después de completar la demo
+      setTimeout(() => {
+        if (this.isRecording) {
+          this.stopRecording();
+        }
+      }, 12000);
+    }
+
+    stopRecording() {
+      if (this.mediaRecorder && this.isRecording && this.mediaRecorder.state !== 'inactive') {
+        this.mediaRecorder.stop();
+        this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
+      }
+
+      this.isRecording = false;
+      this.updateUI('processing');
+    }
+
+    updateUI(state) {
+      const button = this.recordButton;
+      const status = this.status;
+
+      button.className = `record-button ${state}`;
+
+      switch(state) {
+        case 'recording':
+          button.textContent = 'Detener';
+          status.textContent = '🔴 Grabando...';
+          status.style.color = '#e74c3c';
+          break;
+        case 'processing':
+          button.textContent = 'Procesando...';
+          status.textContent = '⚡ Analizando contenido';
+          status.style.color = '#f39c12';
+          break;
+        case 'inactive':
+        default:
+          button.textContent = 'Iniciar';
+          status.textContent = 'Presiona para grabar';
+          status.style.color = '#333';
+          break;
+      }
+    }
+
+    startVisualization() {
+      const bars = this.visualizer.querySelectorAll('.bar');
+
+      const animate = () => {
+        if (this.isRecording) {
+          bars.forEach(bar => {
+            const height = Math.random() * 80 + 10;
+            bar.style.height = height + 'px';
+          });
+          requestAnimationFrame(animate);
+        } else {
+          bars.forEach(bar => {
+            bar.style.height = '5px';
+          });
+        }
+      };
+      animate();
+    }
+
+    simulateTranscription() {
+      const sampleTexts = [
+        "Hoy vamos a hablar sobre los conceptos fundamentales de la fotosíntesis...",
+        "La fotosíntesis es el proceso mediante el cual las plantas convierten la luz solar en energía química...",
+        "Los componentes principales son la clorofila, el dióxido de carbono y el agua...",
+        "Este proceso ocurre principalmente en los cloroplastos de las hojas...",
+        "La ecuación química general es: 6CO₂ + 6H₂O + luz solar → C₆H₁₂O₆ + 6O₂...",
+        "Es importante entender que existen dos fases: las reacciones lumínicas y el ciclo de Calvin..."
+      ];
+
+      let currentIndex = 0;
+      let currentText = "";
+
+      const typeText = () => {
+        if (this.isRecording && currentIndex < sampleTexts.length) {
+          const targetText = sampleTexts[currentIndex];
+
+          if (currentText.length < targetText.length) {
+            currentText += targetText[currentText.length];
+            this.transcript.textContent = currentText;
+            this.transcript.scrollTop = this.transcript.scrollHeight;
+          } else {
+            currentIndex++;
+            if (currentIndex < sampleTexts.length) {
+              currentText += " ";
+            }
+          }
+
+          setTimeout(typeText, 50 + Math.random() * 100);
+        }
+      };
+
+      setTimeout(typeText, 1000);
+    }
+
+    processAudio() {
+      setTimeout(() => {
+        this.generateAnalysis();
+        this.generateMindMap();
+        this.updateUI('inactive');
+      }, 2000);
+    }
+
+    generateAnalysis() {
+      const keyConcepts = document.getElementById('keyConcepts');
+      const summary = document.getElementById('summary');
+
+      keyConcepts.innerHTML = `
+                    <div class="key-concepts-tags">
+                        <span class="concept-tag" style="background: #e3f2fd;">Fotosíntesis</span>
+                        <span class="concept-tag" style="background: #e8f5e8;">Clorofila</span>
+                        <span class="concept-tag" style="background: #fff3e0;">Cloroplastos</span>
+                        <span class="concept-tag" style="background: #f3e5f5;">Ciclo de Calvin</span>
+                        <span class="concept-tag" style="background: #ffebee;">Reacciones lumínicas</span>
+                    </div>
+                `;
+
+      summary.innerHTML = `
+                    <div style="margin-top: 10px;">
+                        La clase abordó los fundamentos de la fotosíntesis, explicando cómo las plantas convierten la luz solar en energía química.
+                        Se destacaron los componentes esenciales (clorofila, CO₂, H₂O) y las dos fases principales del proceso:
+                        las reacciones lumínicas y el ciclo de Calvin, que ocurren en los cloroplastos de las hojas.
+                    </div>
+                `;
+    }
+
+    generateMindMap() {
+      const mindMap = document.getElementById('mindMap');
+      mindMap.innerHTML = '';
+
+      // Escalar posiciones según tamaño del contenedor
+      const scale = Math.min(mindMap.offsetWidth / 350, mindMap.offsetHeight / 300);
+
+      // Nodo central
+      const centralNode = this.createNode('Fotosíntesis', 150 * scale, 120 * scale, '#667eea', true);
+      mindMap.appendChild(centralNode);
+
+      // Nodos secundarios con posiciones escaladas
+      const nodes = [
+        { text: 'Clorofila', x: 50, y: 50, color: '#4caf50' },
+        { text: 'CO₂', x: 250, y: 50, color: '#ff9800' },
+        { text: 'H₂O', x: 50, y: 190, color: '#2196f3' },
+        { text: 'Cloroplastos', x: 250, y: 190, color: '#9c27b0' },
+        { text: 'Reacciones', x: 80, y: 250, color: '#f44336' },
+        { text: 'Ciclo Calvin', x: 220, y: 250, color: '#795548' }
+      ];
+
+      nodes.forEach(node => {
+        const nodeElement = this.createNode(
+                node.text,
+                node.x * scale,
+                node.y * scale,
+                node.color
+        );
+        mindMap.appendChild(nodeElement);
+
+        const connection = this.createConnection(
+                node.x * scale + 40,
+                node.y * scale + 15,
+                175 * scale,
+                135 * scale
+        );
+        mindMap.appendChild(connection);
+      });
+    }
+
+    createNode(text, x, y, color, isCenter = false) {
+      const node = document.createElement('div');
+      node.className = 'node';
+      node.textContent = text;
+      node.style.left = x + 'px';
+      node.style.top = y + 'px';
+      node.style.background = color;
+
+      if (isCenter) {
+        node.style.fontSize = 'clamp(11px, 2vw, 14px)';
+        node.style.fontWeight = 'bold';
+        node.style.transform = 'scale(1.2)';
+      }
+
+      return node;
+    }
+
+    createConnection(x1, y1, x2, y2) {
+      const connection = document.createElement('div');
+      connection.className = 'connection';
+
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      const length = Math.sqrt(dx * dx + dy * dy);
+      const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+
+      connection.style.left = x1 + 'px';
+      connection.style.top = y1 + 'px';
+      connection.style.width = length + 'px';
+      connection.style.transform = `rotate(${angle}deg)`;
+
+      return connection;
+    }
+  }
+
+  // Funciones de exportación
+  function exportToPDF() {
+    alert('📄 Funcionalidad de exportar a PDF\n\nPara producción, integrar jsPDF');
+  }
+
+  function exportToImage() {
+    alert('🖼️ Funcionalidad de exportar imagen\n\nPara producción, integrar html2canvas');
+  }
+
+  function exportToText() {
+    const transcript = document.getElementById('transcript').textContent;
+    const summary = document.getElementById('summary').textContent;
+
+    const content = `TRANSCRIPCIÓN:\n${transcript}\n\nRESUMEN:\n${summary}`;
+
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'analisis_clase.txt';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  // Inicializar la aplicación
+  document.addEventListener('DOMContentLoaded', () => {
+    new AudioAnalyzer();
+  });
+</script>
+</body>
+</html>
